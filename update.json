@@ -1,0 +1,15 @@
+{
+  "tag_name": "v0.8.1",
+  "draft": false,
+  "prerelease": false,
+  "body": "新增 GitHub 检查、下载、校验与安装更新；公开轻量更新索引避免匿名 API 限流。稳定同步改为事件驱动，无变化不读取全表、不重发，换模型时恢复共享值。95 项检查通过。",
+  "assets": [
+    {
+      "name": "AvatarSwitchSync-0.8.1-Setup.exe",
+      "state": "uploaded",
+      "size": 12334479,
+      "digest": "sha256:39d5cfc7e724cfa1efd786cf3ee0ec93d640e2dff603184dc9f9a682f332af0f",
+      "browser_download_url": "https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.1/AvatarSwitchSync-0.8.1-Setup.exe"
+    }
+  ]
+}

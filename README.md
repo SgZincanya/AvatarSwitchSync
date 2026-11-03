@@ -2,10 +2,10 @@
 
 用于 VRChat 的 Windows 模型设置共享工具。为同一角色的不同模型保留选定参数，换模型后自动恢复。
 
-## 下载 0.8.0
+## 下载 0.8.1
 
-- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.0/AvatarSwitchSync-0.8.0-Installer.zip)
-- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.0/AvatarSwitchSync-0.8.0-Source.zip)
+- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.1/AvatarSwitchSync-0.8.1-Installer.zip)
+- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.1/AvatarSwitchSync-0.8.1-Source.zip)
 
 ## 使用
 

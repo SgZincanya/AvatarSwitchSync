@@ -16,9 +16,9 @@ import uuid
 
 REPOSITORY='SgZincanya/AvatarSwitchSync'
 RELEASES_URL='https://github.com/'+REPOSITORY+'/releases'
-LATEST_URL='https://api.github.com/repos/'+REPOSITORY+'/releases/latest'
+LATEST_URL='https://raw.githubusercontent.com/'+REPOSITORY+'/main/update.json'
 MAX_INSTALLER=200*1024*1024
-ALLOWED_HOSTS={'api.github.com','github.com','objects.githubusercontent.com','release-assets.githubusercontent.com'}
+ALLOWED_HOSTS={'api.github.com','github.com','raw.githubusercontent.com','objects.githubusercontent.com','release-assets.githubusercontent.com'}
 
 
 class UpdateCancelled(Exception):pass

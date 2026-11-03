@@ -1,6 +1,6 @@
-# Avatar Switch Sync 0.8.0 · 源码维护包
+# Avatar Switch Sync 0.8.1 · 源码维护包
 
-这份包可以独立修改、测试、构建 Windows 程序和安装包，不依赖开发者的原项目目录。程序源码与 0.8.0 安装版一致。配置、模型 ID、共享记录、参数快照、运行日志、个人界面截图和历史备份均不随包提供。
+这份包可以独立修改、测试、构建 Windows 程序和安装包，不依赖开发者的原项目目录。程序源码与 0.8.1 安装版一致。配置、模型 ID、共享记录、参数快照、运行日志、个人界面截图和历史备份均不随包提供。
 
 ## 环境准备
 
@@ -23,7 +23,7 @@ py -3.12 -m venv .venv
 .\build.ps1
 ```
 
-`build.ps1` 会先执行 95 项测试，再生成 `dist/AvatarSwitchSync/` 程序目录与 `dist/AvatarSwitchSync-0.8.0-Setup.exe` 安装包。版本取自 `src/config_store.py` 的 `VERSION`，之后升级只需先修改该版本值。
+`build.ps1` 会先执行 95 项测试，再生成 `dist/AvatarSwitchSync/` 程序目录与 `dist/AvatarSwitchSync-0.8.1-Setup.exe` 安装包。版本取自 `src/config_store.py` 的 `VERSION`，之后升级只需先修改该版本值。
 
 可显式指定工具路径，或仅构建程序：
 
@@ -92,3 +92,5 @@ py -3.12 -m venv .venv
 每个正式版本需要上传命名为 `AvatarSwitchSync-版本-Setup.exe` 的原始安装程序，且 GitHub 资产的 `digest` 提供 SHA-256；软件不从源码 ZIP 或维护包安装。发布版本标签为 `v主版本.次版本.修订号`，草稿、预发布和不完整安装资产不会作为自动更新目标。更新走公开 API，无账号令牌。
 
 构建更新助手需要 Windows 自带的 .NET Framework 4.x C# 编译器，脚本从 Windows 目录检测 `Framework64/v4.0.30319/csc.exe`。`UpdateHelper.exe` 随程序分发，安装前复制到用户数据的 updates 目录运行，避免覆盖正在使用的程序。保持 AppId 和共享启动参数稳定，不要删除个人数据目录。
+
+公开更新索引为仓库根目录的 `update.json`，结构与 GitHub Release 元数据兼容，仅包含正式版本、更新说明和原始 Setup.exe 的公开地址、大小及 SHA-256。程序读取 raw.githubusercontent.com 上的索引，不消耗 GitHub REST 匿名额度。发布时先完成 Release 附件上传与校验，最后更新 main 分支上的 update.json，避免用户看到尚未准备好的安装包。

@@ -1,4 +1,4 @@
-# Avatar Switch Sync 0.8.0
+# Avatar Switch Sync 0.8.1
 
 一个用于 VRChat 的模型设置共享工具。切换同一共享组中的模型后，自动恢复选定的参数状态。
 
