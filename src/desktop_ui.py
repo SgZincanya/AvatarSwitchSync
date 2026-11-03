@@ -8,12 +8,14 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import uuid
+import webbrowser
 
 import avatar_sync as backend
 from config_store import VERSION, display_name, empty_config, load_config, merge_config, validate_config
 from sync_core import protected, default_exclusion
 from parameter_snapshots import CaptureWorker, list_snapshots
 from model_discovery import InventoryMonitor
+from updates import CheckWorker,DownloadWorker,RELEASES_URL,start_install
 
 
 def palette():
@@ -167,6 +169,16 @@ class App:
         self.capture_worker = None
         self.snapshots = []
         self.closing = False
+        self.exit_requested = False
+        self.update_check = None
+        self.update_download = None
+        self.update_info = None
+        self.update_path = None
+        self.update_dialog = None
+        self.update_manual = False
+        self.update_downloading = False
+        self.update_message = '可以检查 GitHub 上的新版本。'
+        self.auto_update_id = None
         self.current_group = None
         self.sort_reverse = False
         self.log_lines = []
@@ -206,6 +218,7 @@ class App:
         if avatars is None:
             self.monitor = InventoryMonitor(self.events)
             self.monitor.start()
+            self.auto_update_id=root.after(8000,lambda:self.check_updates(automatic=True))
 
     def configure_style(self):
         from ui_theme import apply_theme
@@ -224,6 +237,8 @@ class App:
     def update_navigation(self):
         for mode,button in self.nav_buttons.items():
             button.configure(style='NavSelected.TButton' if self.nav_mode==mode else 'Nav.TButton',image=self.theme_images[mode+'_active' if self.nav_mode==mode else mode])
+        if self.running and callable(getattr(self.worker,'set_diagnostics',None)):
+            self.worker.set_diagnostics(self.nav_mode=='diagnostics')
 
     def build_menu(self):
         menu = tk.Menu(self.root, tearoff=False)
@@ -241,6 +256,8 @@ class App:
         file.add_command(label='退出', command=self.close)
         menu.add_cascade(label='文件', menu=file)
         help_menu = tk.Menu(menu, tearoff=False)
+        help_menu.add_command(label='检查更新…',command=self.check_updates)
+        help_menu.add_separator()
         help_menu.add_command(label='快速开始', command=self.help)
         help_menu.add_command(label='关于 Avatar Switch Sync', command=self.about)
         menu.add_cascade(label='帮助', menu=help_menu)
@@ -254,6 +271,75 @@ class App:
             button.configure(command=lambda m=popup,b=button:m.tk_popup(b.winfo_rootx(),b.winfo_rooty()+b.winfo_height()))
             button.pack(side='left',padx=(0,4))
             self.root.bind('<Alt-'+key+'>',lambda _,m=popup,b=button:m.tk_popup(b.winfo_rootx(),b.winfo_rooty()+b.winfo_height()))
+        self.update_button=ttk.Button(self.menu_strip,text='检查更新',style='Menu.TButton',command=self.open_updates)
+        self.update_button.pack(side='right')
+
+    def open_updates(self):
+        if self.update_info:self.show_update_dialog()
+        else:self.check_updates()
+
+    def check_updates(self,automatic=False):
+        if self.exit_requested:return
+        if not automatic:
+            self.update_manual=True
+            self.show_update_dialog()
+        if self.update_check and self.update_check.is_alive():return
+        if self.update_download and self.update_download.is_alive():return
+        self.update_message='正在检查 GitHub 更新…'
+        self.update_button.configure(text='正在检查…')
+        self.render_update_dialog()
+        self.update_check=CheckWorker(VERSION,self.events)
+        self.update_check.start()
+
+    def show_update_dialog(self):
+        if self.update_dialog and self.update_dialog.winfo_exists():
+            self.update_dialog.lift();return
+        dialog=tk.Toplevel(self.root);self.update_dialog=dialog
+        dialog.title('软件更新');dialog.geometry('620x490');dialog.minsize(520,390)
+        dialog.transient(self.root);dialog.configure(bg=self.c['bg'])
+        frame=ttk.Frame(dialog,padding=24);frame.pack(fill='both',expand=True)
+        ttk.Label(frame,text='软件更新',style='Section.TLabel').pack(anchor='w')
+        ttk.Label(frame,text=f'当前版本 {VERSION}',style='Muted.TLabel').pack(anchor='w',pady=(6,12))
+        self.update_status=tk.StringVar()
+        ttk.Label(frame,textvariable=self.update_status,wraplength=550).pack(anchor='w',pady=(0,10))
+        self.update_notes=tk.Text(frame,height=8,wrap='word',font=('Microsoft YaHei UI',10),background=self.c['panel'],foreground=self.c['text'],relief='flat',padx=12,pady=12,highlightthickness=0,state='disabled')
+        self.update_notes.pack(fill='both',expand=True)
+        self.update_bar=ttk.Progressbar(frame,mode='determinate',maximum=100)
+        self.update_bar.pack(fill='x',pady=(12,8))
+        ttk.Label(frame,text='安装会正常停止共享并重启软件，个人设置和记录会保留。',style='Muted.TLabel',wraplength=550).pack(anchor='w')
+        actions=ttk.Frame(frame);actions.pack(fill='x',pady=(18,0))
+        ttk.Button(actions,text='GitHub 版本页',command=lambda:webbrowser.open(self.update_info['page'] if self.update_info else RELEASES_URL)).pack(side='left')
+        ttk.Button(actions,text='稍后',command=dialog.destroy).pack(side='right')
+        self.update_action=ttk.Button(actions,text='下载更新',style='Primary.TButton',command=self.update_action_clicked)
+        self.update_action.pack(side='right',padx=8)
+        self.render_update_dialog()
+
+    def render_update_dialog(self):
+        if not self.update_dialog or not self.update_dialog.winfo_exists():return
+        self.update_status.set(self.update_message)
+        info=self.update_info
+        self.update_notes.configure(state='normal');self.update_notes.delete('1.0','end')
+        self.update_notes.insert('end',info['notes'] if info else '新版本会在这里显示更新内容。')
+        self.update_notes.configure(state='disabled')
+        downloading=self.update_downloading
+        self.update_action.configure(text='安装并重启' if self.update_path else '下载中…' if downloading else '下载更新',state='disabled' if not info or downloading else 'normal')
+
+    def update_action_clicked(self):
+        if not self.update_info:return
+        if self.update_path:
+            try:
+                start_install(self.update_path,self.update_info,self.data_dir,backend.BASE,self.running)
+            except Exception as exc:
+                self.update_message=str(exc);self.render_update_dialog();return
+            self.close()
+            return
+        if self.update_download and self.update_download.is_alive():return
+        self.update_download=DownloadWorker(self.update_info,self.data_dir,self.events)
+        self.update_downloading=True
+        self.update_message='正在下载安装程序，可稍后再安装。'
+        self.update_bar['value']=0
+        self.update_download.start()
+        self.render_update_dialog()
 
     def build_shell(self):
         outer = ttk.Frame(self.root)
@@ -601,7 +687,7 @@ class App:
 
     def build_diagnostics(self):
         ttk.Label(self.diagnostics_view,text='实时资源与连接',style='Section.TLabel').pack(anchor='w',pady=(0,8))
-        ttk.Label(self.diagnostics_view,text='开始共享后每秒采样。本页只测量本软件，不能据此判断游戏帧率。',style='Muted.TLabel',wraplength=650).pack(anchor='w',pady=(0,18))
+        ttk.Label(self.diagnostics_view,text='仅在打开本页时每秒采样。本页只测量本软件，不能据此判断游戏帧率。',style='Muted.TLabel',wraplength=650).pack(anchor='w',pady=(0,18))
         grid=ttk.Frame(self.diagnostics_view)
         grid.pack(fill='x')
         grid.columnconfigure(0,weight=1)
@@ -614,7 +700,7 @@ class App:
             value=tk.StringVar(value='—')
             ttk.Label(card,textvariable=value,style='Panel.TLabel',font=('Segoe UI',18,'bold')).pack(anchor='w',pady=(7,0))
             self.diagnostic_fields[key]=value
-        ttk.Label(self.diagnostics_view,text='稳定运行时每 2 秒完整校验一次；选定参数的变化通过 OSC 通知及时记录。\nCPU 按全机逻辑核心数折算。停止后保留最后一次采样，数据不上传。',style='Muted.TLabel',wraplength=650).pack(anchor='w',pady=(10,0))
+        ttk.Label(self.diagnostics_view,text='稳定运行时不轮询完整参数表；通过 OSC 通知记录变化，仅每 5 秒轻量检查连接。\nCPU 按全机逻辑核心数折算。停止后保留最后一次采样，数据不上传。',style='Muted.TLabel',wraplength=650).pack(anchor='w',pady=(10,0))
 
     def show_diagnostics(self):
         self.nav_mode='diagnostics'
@@ -920,6 +1006,7 @@ class App:
             return
         if not self.save(): return
         self.worker = backend.Worker(copy.deepcopy(self.config), self.events, self.data_dir,capture_current=capture_current,add_group=add_group)
+        self.worker.set_diagnostics(self.nav_mode=='diagnostics')
         self.worker.start()
         self.start_button.configure(text='停止共享')
         self.status.set('正在连接 VRChat…')
@@ -965,6 +1052,7 @@ class App:
         if self.running:
             self.clear_add_mode()
             self.worker.stop_event.set()
+            if hasattr(self.worker,'wake'):self.worker.wake.set()
             self.start_button.configure(state='disabled')
             self.status.set('正在停止共享…')
 
@@ -990,10 +1078,43 @@ class App:
 
     def pump(self):
         pending_logs=[]
+        received_event=False
         while True:
             try: kind, value = self.events.get_nowait()
             except queue.Empty: break
+            received_event=True
             if kind=='log': pending_logs.append(value)
+            elif kind=='update_checked':
+                old_version=self.update_info['version'] if self.update_info else None
+                self.update_info=value
+                if not value or value['version']!=old_version:self.update_path=None
+                self.update_button.configure(text='有更新 '+value['version'] if value else '检查更新')
+                self.update_message='发现新版本 '+value['version'] if value else '当前已是最新版本。'
+                if value:self.notice.set('发现新版本 '+value['version']+'，可点击右上角查看更新。')
+                self.render_update_dialog()
+                self.update_manual=False
+            elif kind=='update_progress':
+                if self.update_info:
+                    percent=min(100,value/self.update_info['size']*100)
+                    self.update_message=f'正在下载… {percent:.0f}%'
+                    if self.update_dialog and self.update_dialog.winfo_exists():
+                        self.update_bar['value']=percent;self.update_status.set(self.update_message)
+            elif kind=='update_ready':
+                self.update_downloading=False
+                self.update_path=value;self.update_message='下载完成，文件校验通过。可以安装并重启。'
+                self.update_button.configure(text='更新已就绪')
+                self.notice.set('更新已下载，可点击右上角安装。')
+                self.render_update_dialog()
+                if self.update_dialog and self.update_dialog.winfo_exists():self.update_action.configure(text='安装并重启',state='normal')
+            elif kind=='update_cancelled':
+                self.update_downloading=False
+                self.update_message='下载已取消。';self.render_update_dialog()
+            elif kind=='update_error':
+                self.update_downloading=False
+                self.update_button.configure(text='检查更新')
+                self.update_message='更新未完成：'+value
+                if self.update_manual or (self.update_dialog and self.update_dialog.winfo_exists()):self.render_update_dialog()
+                self.update_manual=False
             elif kind=='group_enrolled':
                 self.config=value['config']
                 self.accept_inventory(value['avatars'])
@@ -1045,9 +1166,16 @@ class App:
                         self.paint_rows()
                 except (ValueError, OSError): pass
         self.append_logs(pending_logs)
-        if not self.closing: self.pump_id = self.root.after(150, self.pump)
+        if not self.closing: self.pump_id = self.root.after(150 if received_event else 750, self.pump)
 
     def close(self):
+        self.exit_requested=True
+        if self.auto_update_id:self.root.after_cancel(self.auto_update_id);self.auto_update_id=None
+        if self.update_check:self.update_check.stop_event.set()
+        if self.update_download and self.update_download.is_alive():
+            self.update_download.stop_event.set()
+            self.root.after(150,self.close)
+            return
         if self.monitor:self.monitor.stop_event.set()
         if self.capture_worker and self.capture_worker.is_alive():
             self.capture_worker.stop_event.set()

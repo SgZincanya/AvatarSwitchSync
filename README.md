@@ -2,10 +2,10 @@
 
 用于 VRChat 的 Windows 模型设置共享工具。为同一角色的不同模型保留选定参数，换模型后自动恢复。
 
-## 下载 0.7.0
+## 下载 0.8.0
 
-- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.7.0/AvatarSwitchSync-0.7.0-Installer.zip)
-- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.7.0/AvatarSwitchSync-0.7.0-Source.zip)
+- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.0/AvatarSwitchSync-0.8.0-Installer.zip)
+- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.0/AvatarSwitchSync-0.8.0-Source.zip)
 
 ## 使用
 
@@ -18,9 +18,17 @@ SteamVR 自动启动时恢复已有共享记录；手动开始共享时先保存
 
 成员默认折叠、展开后一行一个。支持参数快照、本机模型自动发现、共享范围筛选、深浅界面和运行诊断。校准与批量归零保护会暂停异常状态的记录，实时眼追和表情参数受保护。
 
+## 静默同步
+
+无参数变化时不重复读取完整参数表、不重发或刷新相同数据。参数变化通过 OSC 通知记录，切换模型时恢复共享值；只保留每 5 秒一次的轻量连接检查。实时参数先按原始地址过滤，相同值不再唤醒共享线程。模型缓存响应目录变化，诊断页关闭时停止采样。
+
+## 软件内更新
+
+通过右上角或「帮助 → 检查更新」查看新版本与更新说明。软件启动后也会在后台检查一次，网络不可用时不打断共享。点击下载安装程序，文件大小与 SHA-256 校验通过后，可点击「安装并重启」。更新助手会等待软件正常退出，使用原安装目录升级，并保留个人设置和记录；原本正在共享时，升级后恢复已有记录。无须 GitHub 登录或令牌。
+
 ## 维护与构建
 
-完整可维护源码位于 `src/`；测试位于 `tests/`；构建入口为 `build.ps1`。当前版本通过 79 项测试，并已从独立维护目录重新构建程序和安装包。
+完整可维护源码位于 `src/`；测试位于 `tests/`；构建入口为 `build.ps1`。当前版本通过 95 项测试，并已从独立维护目录重新构建程序和安装包。
 
 请参阅[维护指南](docs/MAINTENANCE.md)准备 Python 3.12 和构建依赖，再运行测试、生成界面资源或重新打包。软件详细说明见[使用说明](docs/README.md)。
 

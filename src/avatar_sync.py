@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from zeroconf import Zeroconf, ServiceInfo, ServiceBrowser, IPVersion
-from sync_core import Engine, protected, valid, default_exclusion
+from sync_core import Engine, protected, valid, equal, default_exclusion
 
 BASE = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 DATA = BASE / "data" if (BASE / "portable.flag").exists() else Path(os.environ.get("LOCALAPPDATA", str(BASE))) / "AvatarSwitchSync"
@@ -193,8 +193,9 @@ def osc_updates(raw, accepted, depth=0):
 
 
 class Transport:
-    def __init__(self, log):
+    def __init__(self, log, activity=None):
         self.log = log
+        self.activity=activity or threading.Event()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("127.0.0.1", 0))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
@@ -204,6 +205,7 @@ class Transport:
         self.notices = queue.Queue(maxsize=100)
         self.update_lock = threading.Lock()
         self.parameter_updates = {}
+        self.last_received_values = {}
         self.listen_addresses = frozenset()
         self.received_packets = 0
         self.sent_packets = 0
@@ -254,6 +256,19 @@ class Transport:
         self.browser = ServiceBrowser(self.zc, "_oscjson._tcp.local.", self)
         self.opener = local_http_opener()
         self.log(f"独立 OSC 接收端口：{self.udp_port}；未占用 9000/9001")
+
+    @property
+    def listen_addresses(self):return self._listen_addresses
+
+    @listen_addresses.setter
+    def listen_addresses(self,value):
+        value=frozenset(value)
+        if value==getattr(self,'_listen_addresses',None):return
+        with self.update_lock:
+            self._listen_addresses=value
+            self.wire_addresses=frozenset(address.encode('utf-8') for address in value)
+            self.last_received_values.clear()
+            self.parameter_updates.clear()
 
     def add_service(self, zc, kind, name):
         self.update_service(zc, kind, name)
@@ -323,6 +338,15 @@ class Transport:
                 break
         return ids
 
+    def identity(self):
+        if not self.endpoint:return None
+        try:
+            value=self.get(self.endpoint,'/avatar/change').get('VALUE',[])
+            return value[0] if value and isinstance(value[0],str) and value[0].startswith('avtr_') else None
+        except (OSError,ValueError):
+            self.endpoint,self.target=None,None
+            return None
+
     def _receive(self):
         # Drain continuously: eye/face/physics traffic must never bury a switch event.
         while not self.closed.is_set():
@@ -333,16 +357,24 @@ class Transport:
                     continue
                 if raw.startswith((b"/avatar/change\0", b"#bundle\0")):
                     for avatar_id in avatar_changes(raw):
+                        with self.update_lock:self.last_received_values.clear()
                         try:
                             self.notices.put_nowait(avatar_id)
                         except queue.Full:
                             try:self.notices.get_nowait()
                             except queue.Empty:pass
                             self.notices.put_nowait(avatar_id)
+                        self.activity.set()
                 if self.listen_addresses and raw.startswith((b'/avatar/parameters/',b'#bundle\0')):
+                    if raw.startswith(b'/avatar/parameters/') and raw[:raw.find(b'\0')] not in self.wire_addresses:
+                        continue
                     updates=osc_updates(raw,self.listen_addresses)
                     if updates:
-                        with self.update_lock:self.parameter_updates.update(updates)
+                        with self.update_lock:
+                            changed={name:value for name,value in updates.items() if self.last_received_values.get(name)!=value}
+                            self.last_received_values.update(changed)
+                            self.parameter_updates.update(changed)
+                        if changed:self.activity.set()
             except socket.timeout:
                 continue
             except OSError:
@@ -414,9 +446,27 @@ class Worker(threading.Thread):
         self.commands = queue.Queue()
         self.capture_current = capture_current
         self.add_group = add_group
+        self.wake = threading.Event()
+        self.diagnostics_active = threading.Event()
+        self.last_status = None
 
     def set_add_group(self, group_id):
         self.commands.put(group_id)
+        self.wake.set()
+
+    def set_diagnostics(self,enabled):
+        if enabled:self.diagnostics_active.set()
+        else:self.diagnostics_active.clear()
+        self.wake.set()
+
+    def wait(self,timeout):
+        self.wake.wait(timeout)
+        self.wake.clear()
+
+    def status(self,text):
+        if text!=self.last_status:
+            self.last_status=text
+            self.events.put(('status',text))
 
     def log(self, text):
         self.events.put(("log", text))
@@ -430,13 +480,15 @@ class Worker(threading.Thread):
         transport = None
         state = None
         dirty = False
+        revision = 0
         last_flush = time.monotonic()
         def persist(_):
-            nonlocal dirty
+            nonlocal dirty,revision
             dirty = True
+            revision += 1
         try:
             state = read_json(self.data_dir / "state.json", {})
-            transport = Transport(self.log)
+            transport = Transport(self.log,activity=self.wake)
             effective = common_config(self.config, inventory())
             engine = Engine(effective, state, transport.send, persist, self.log,
                             clock=time.monotonic,report=lambda result:self.events.put(('result',result)),seed_missing=self.capture_current)
@@ -446,9 +498,13 @@ class Worker(threading.Thread):
             enrollment_notice = ''
             last_good = time.monotonic()
             next_read = 0
+            next_identity = 0
+            validation_at = float('inf')
+            next_diagnostic = 0
             backup_complete = False
             live, output_lookup = {}, {}
             last_live_event = 0
+            last_revision,last_phase = -1,None
             while not self.stop_event.is_set():
                 now = time.monotonic()
                 while True:
@@ -457,6 +513,21 @@ class Worker(threading.Thread):
                     if self.add_group:self.capture_current = False
                     next_read = 0
                 changes = transport.changes()
+                if not changes and engine.phase in ('active','outside') and now>=next_identity:
+                    identity_reader=getattr(transport,'identity',None)
+                    identity=identity_reader() if identity_reader else None
+                    next_identity=now+5
+                    if identity_reader:
+                        if identity:
+                            last_good=time.monotonic()
+                            if identity!=engine.avatar:changes=[identity]
+                        else:
+                            engine.disconnect();guard.reset(None)
+                            live,output_lookup={},{}
+                            transport.listen_addresses=frozenset()
+                            next_read=0
+                            self.status('等待 VRChat 连接')
+                    else:next_read=0  # Transport adapters without identity support.
                 if changes:
                     guard.reset(None)
                     for avatar_id in changes:engine.change(avatar_id,force=True)
@@ -465,6 +536,7 @@ class Worker(threading.Thread):
                     live, output_lookup = {}, {}
                     transport.take_updates()
                     transport.listen_addresses = frozenset()
+                    validation_at=float('inf')
                 if now >= next_read:
                     started = time.perf_counter()
                     snapshot = transport.snapshot()
@@ -477,13 +549,15 @@ class Worker(threading.Thread):
                     if snapshot and (not changes or changes[-1]==snapshot[0]):
                         avatar_id,nodes = snapshot
                         last_good = time.monotonic()
+                        next_identity=last_good+5
                         if avatar_id != getattr(self,'loaded_avatar',None):
                             self.avatars = inventory()
                             effective['groups'] = common_config(self.config,self.avatars)['groups']
                             self.loaded_avatar = avatar_id
                         engine.change(avatar_id)
                         if self.add_group and time.monotonic() >= engine.deadline:
-                            self.avatars = inventory()
+                            known_member=any(avatar_id in g['avatars'] for g in self.config['groups'])
+                            if not known_member:self.avatars = inventory()
                             updated, message = enroll(self.config,self.add_group,avatar_id,self.avatars)
                             if message != enrollment_notice:
                                 enrollment_notice = message
@@ -502,7 +576,7 @@ class Worker(threading.Thread):
                                 guard.reset(None)
                                 self.log(f'已添加模型：{self.avatars[avatar_id]["name"]}，准备同步已有共享设置')
                                 self.events.put(('group_enrolled',{'config':copy.deepcopy(updated),'avatars':self.avatars,'group':self.add_group,'avatar':avatar_id}))
-                            else:
+                            elif not known_member:
                                 effective['groups'] = common_config(self.config,self.avatars)['groups']
                         engine.group = next((g for g in effective['groups'] if avatar_id in g['avatars']),None)
                         avatar = self.avatars.get(avatar_id)
@@ -513,11 +587,12 @@ class Worker(threading.Thread):
                             output_lookup = {d['output']['address']:name for name,d in definitions.items() if name in enabled_names}
                             transport.listen_addresses = frozenset(output_lookup) | CONTROL_ADDRESSES
                             allowed = guard.inspect(avatar_id,engine.current_record(live),time.monotonic(),control_values(nodes),detect_zero=engine.phase!='restoring')
+                            validation_at=guard.since+(3 if guard.paused else 2) if not allowed and guard.candidate is not None else float('inf')
                             if guard.resumed:
                                 engine.change(avatar_id,force=True)
                                 self.log('校准保护已解除，等待模型稳定后恢复共享设置')
                             if allowed and engine.group and engine.phase=='settling' and time.monotonic()>=engine.deadline and not backup_complete:
-                                self.events.put(('status','正在保存启动前备份…'))
+                                self.status('正在保存启动前备份…')
                                 item = save_startup_backup(self.data_dir,avatar_id,nodes,self.avatars)
                                 self.events.put(('backup_saved',item['id']))
                                 changes_after_backup = transport.changes()
@@ -545,32 +620,38 @@ class Worker(threading.Thread):
                                 backup_complete = True
                             if allowed:engine.snapshot(avatar_id,live)
                             phase = {'settling':'等待模型稳定','restoring':'恢复并确认中','active':'共享中','outside':'当前模型不在共享组','waiting':'等待连接'}.get(engine.phase,engine.phase)
-                            self.events.put(('status',guard.reason if guard.paused else f"{avatar['name']} · {phase}"))
-                        else:self.events.put(('status','当前模型尚无本地缓存，等待自动发现'))
+                            self.status(guard.reason if guard.paused else f"{avatar['name']} · {phase}")
+                        else:self.status('当前模型尚无本地缓存，等待自动发现')
                     elif time.monotonic()-last_good>2.5:
                         engine.disconnect()
                         guard.reset(None)
                         live,output_lookup = {},{}
                         transport.listen_addresses = frozenset()
-                        self.events.put(('status','等待 VRChat 连接'))
-                    next_read = time.monotonic()+(2.0 if engine.phase=='active' else .45)
+                        self.status('等待 VRChat 连接')
+                    next_read = float('inf') if engine.phase=='active' or (engine.phase=='outside' and not self.add_group) else time.monotonic()+(3. if engine.phase=='waiting' else .45)
                 updates = transport.take_updates()
-                if engine.group and time.monotonic()-last_good<2.5:
+                changed=False
+                if engine.group and time.monotonic()-last_good<7.5:
                     for address,(kind,value) in updates.items():
                         control = address.rsplit('/',1)[-1]
                         if address in CONTROL_ADDRESSES and CONTROL_TYPES[control] == kind:
-                            guard.controls[control] = value
+                            if guard.controls.get(control)!=value:
+                                guard.controls[control] = value
+                                changed=True
                         name = output_lookup.get(address)
                         if name in live and live[name]['type']==kind:
-                            live[name]['value'] = value
-                    allowed = guard.inspect(engine.avatar,engine.current_record(live),time.monotonic(),detect_zero=engine.phase!='restoring')
-                    if guard.resumed:
-                        engine.change(engine.avatar,force=True)
-                        next_read = 0
-                        self.log('校准保护已解除，等待模型稳定后恢复共享设置')
-                    if allowed and engine.phase=='active':engine.snapshot(engine.avatar,live)
-                    if guard.paused:
-                        self.events.put(('status',guard.reason))
+                            if not equal(live[name]['value'],value,kind):
+                                live[name]['value'] = value
+                                changed=True
+                    if changed or time.monotonic()>=validation_at:
+                        allowed = guard.inspect(engine.avatar,engine.current_record(live),time.monotonic(),detect_zero=engine.phase!='restoring')
+                        validation_at=guard.since+(3 if guard.paused else 2) if not allowed and guard.candidate is not None else float('inf')
+                        if guard.resumed:
+                            engine.change(engine.avatar,force=True)
+                            next_read = 0
+                            self.log('校准保护已解除，等待模型稳定后恢复共享设置')
+                        if allowed and engine.phase=='active':engine.snapshot(engine.avatar,live)
+                        if guard.paused:self.status(guard.reason)
                 if guard.reason != guard_notice:
                     guard_notice = guard.reason
                     if guard_notice:self.log(guard_notice+'；如为主动批量重置，可停止后重新开始共享')
@@ -578,12 +659,20 @@ class Worker(threading.Thread):
                     write_json(self.data_dir/'state.json',state)
                     dirty=False
                     last_flush=time.monotonic()
-                if time.monotonic()-last_live_event>=1:
+                if (revision!=last_revision or engine.phase!=last_phase) and time.monotonic()-last_live_event>=.5:
                     self.events.put(('live',{'state':copy.deepcopy(state),'phase':engine.phase}))
                     last_live_event=time.monotonic()
-                sample=diagnostics.sample(transport)
-                if sample:self.events.put(('diagnostics',sample))
-                self.stop_event.wait(.1)
+                    last_revision,last_phase=revision,engine.phase
+                if self.diagnostics_active.is_set() and time.monotonic()>=next_diagnostic:
+                    sample=diagnostics.sample(transport)
+                    if sample:self.events.put(('diagnostics',sample))
+                    next_diagnostic=time.monotonic()+1
+                deadlines=[next_read,validation_at]
+                if engine.phase in ('active','outside'):deadlines.append(next_identity)
+                if dirty:deadlines.append(last_flush+.5)
+                if revision!=last_revision or engine.phase!=last_phase:deadlines.append(last_live_event+.5)
+                if self.diagnostics_active.is_set():deadlines.append(next_diagnostic)
+                self.wait(max(.02,min(5.,min(deadlines)-time.monotonic())))
         except Exception as exc:
             import traceback
             self.log(traceback.format_exc())

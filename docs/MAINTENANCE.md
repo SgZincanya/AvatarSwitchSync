@@ -1,6 +1,6 @@
-# Avatar Switch Sync 0.7.0 · 源码维护包
+# Avatar Switch Sync 0.8.0 · 源码维护包
 
-这份包可以独立修改、测试、构建 Windows 程序和安装包，不依赖开发者的原项目目录。程序源码与 0.7.0 安装版一致。配置、模型 ID、共享记录、参数快照、运行日志、个人界面截图和历史备份均不随包提供。
+这份包可以独立修改、测试、构建 Windows 程序和安装包，不依赖开发者的原项目目录。程序源码与 0.8.0 安装版一致。配置、模型 ID、共享记录、参数快照、运行日志、个人界面截图和历史备份均不随包提供。
 
 ## 环境准备
 
@@ -23,7 +23,7 @@ py -3.12 -m venv .venv
 .\build.ps1
 ```
 
-`build.ps1` 会先执行 79 项测试，再生成 `dist/AvatarSwitchSync/` 程序目录与 `dist/AvatarSwitchSync-0.7.0-Setup.exe` 安装包。版本取自 `src/config_store.py` 的 `VERSION`，之后升级只需先修改该版本值。
+`build.ps1` 会先执行 95 项测试，再生成 `dist/AvatarSwitchSync/` 程序目录与 `dist/AvatarSwitchSync-0.8.0-Setup.exe` 安装包。版本取自 `src/config_store.py` 的 `VERSION`，之后升级只需先修改该版本值。
 
 可显式指定工具路径，或仅构建程序：
 
@@ -58,6 +58,8 @@ py -3.12 -m venv .venv
 | `src/model_discovery.py` | 本地模型发现 |
 | `src/parameter_snapshots.py` | 只读参数快照与启动前备份 |
 | `src/steamvr_startup.py` | SteamVR 启动项和已有窗口启动通知 |
+| `src/updates.py` | GitHub 版本检查、Windows 原生 HTTPS、文件校验与更新线程 |
+| `tools/UpdateHelper.cs` | 独立更新助手：等待退出、二次校验、原目录安装与恢复共享 |
 | `src/runtime_diagnostics.py` | 本机进程资源统计 |
 | `installer/AvatarSwitchSync.iss` | 安装目录、快捷方式、升级、卸载和可选 SteamVR 启动项 |
 
@@ -84,3 +86,9 @@ py -3.12 -m venv .venv
 分发 `dist/AvatarSwitchSync/` 时要保留 `_internal/`；也可直接分发安装程序。安装和卸载保留个人分组、共享值与快照，卸载会关闭对应 SteamVR 自动启动。
 
 第三方组件说明和许可位于 `THIRD_PARTY_NOTICES.md` 与 `licenses/`，重新分发时请保留。软件使用说明位于 `docs/README.md`。
+
+## 更新发布约定
+
+每个正式版本需要上传命名为 `AvatarSwitchSync-版本-Setup.exe` 的原始安装程序，且 GitHub 资产的 `digest` 提供 SHA-256；软件不从源码 ZIP 或维护包安装。发布版本标签为 `v主版本.次版本.修订号`，草稿、预发布和不完整安装资产不会作为自动更新目标。更新走公开 API，无账号令牌。
+
+构建更新助手需要 Windows 自带的 .NET Framework 4.x C# 编译器，脚本从 Windows 目录检测 `Framework64/v4.0.30319/csc.exe`。`UpdateHelper.exe` 随程序分发，安装前复制到用户数据的 updates 目录运行，避免覆盖正在使用的程序。保持 AppId 和共享启动参数稳定，不要删除个人数据目录。

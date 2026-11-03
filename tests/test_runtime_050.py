@@ -63,7 +63,8 @@ class RuntimeTests(unittest.TestCase):
             received_packets=0
             sent_packets=0
             reads=0
-            def __init__(self,*_):self.changed=False;self.switched=False;self.send_times=[]
+            def __init__(self,*_):self.changed=False;self.switched=False;self.send_times=[];self.control_stage=None
+            def identity(self):return 'avtr_B' if self.switched else 'avtr_A'
             def changes(self):
                 if switch and tick[0]>10 and not self.switched:
                     self.switched=True
@@ -82,6 +83,15 @@ class RuntimeTests(unittest.TestCase):
                         nodes[address]['TYPE']='F'
                 return ('avtr_B' if self.switched else 'avtr_A'),nodes
             def take_updates(self):
+                if calibrate:
+                    stage=0 if 10<tick[0]<13 else 6
+                    if stage!=self.control_stage:
+                        self.control_stage=stage
+                        nodes['/avatar/parameters/TrackingType']={'TYPE':'i','ACCESS':1,'VALUE':[stage]}
+                        values={'/avatar/parameters/TrackingType':('Int',stage),'/avatar/parameters/VRMode':('Int',1)}
+                        if stage==0:
+                            nodes[address].update(TYPE='F',VALUE=[False]);values[address]=('Bool',False)
+                        return values
                 if tick[0]>7 and not self.changed:
                     self.changed=True
                     nodes[address]['VALUE']=[True]
@@ -104,6 +114,7 @@ class RuntimeTests(unittest.TestCase):
         events=queue.Queue()
         worker=b.Worker(config,events,self.data)
         worker.stop_event=Stop()
+        worker.wait=lambda seconds:worker.stop_event.wait(min(seconds,.1))
         write=b.write_json
         def commit(path,value):
             if save_failure:raise OSError('fixture state write failure')

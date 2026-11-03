@@ -9,3 +9,5 @@ portable.flag
 connection-diagnostic.json
 steamvr-startup-result.json
 *.log
+
+updates/

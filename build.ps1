@@ -18,6 +18,10 @@ try {
     & $Python -m PyInstaller --noconfirm --windowed --onedir --name AvatarSwitchSync --distpath dist --workpath build\pyinstaller --specpath build --paths src --collect-all zeroconf --icon $iconFile --version-file $versionFile src\avatar_sync.py
     if ($LASTEXITCODE -ne 0) { throw '程序构建失败。' }
     $release = Join-Path $PSScriptRoot 'dist\AvatarSwitchSync'
+    $helperCompiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    if (-not (Test-Path -LiteralPath $helperCompiler)) { throw '未找到 Windows .NET Framework C# 编译器，无法构建更新助手。' }
+    & $helperCompiler /nologo /target:winexe /reference:System.Windows.Forms.dll ("/out:"+(Join-Path $release 'UpdateHelper.exe')) tools\UpdateHelper.cs
+    if ($LASTEXITCODE -ne 0) { throw '更新助手构建失败。' }
     New-Item -ItemType Directory -Path (Join-Path $release 'source') -Force | Out-Null
     Copy-Item -LiteralPath src\app.ico,docs\README.md,THIRD_PARTY_NOTICES.md -Destination $release
     Copy-Item -Path src\*.py -Destination (Join-Path $release 'source')

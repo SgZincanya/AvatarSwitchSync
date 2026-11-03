@@ -52,6 +52,7 @@ class EnrollmentTests(unittest.TestCase):
         class Transport:
             received_packets=sent_packets=0
             def __init__(inner):inner.changed=False;inner.mode_changed=False
+            def identity(inner):return 'avtr_D' if inner.changed else 'avtr_C'
             def changes(inner):
                 if disable and tick[0]>10 and not inner.changed:
                     inner.changed=True
@@ -69,6 +70,7 @@ class EnrollmentTests(unittest.TestCase):
             def close(inner):pass
         transport=Transport()
         worker.stop_event=Stop()
+        worker.wait=lambda seconds:worker.stop_event.wait(min(seconds,.1))
         def inventory():
             result=copy.deepcopy(self.avatars)
             if late and tick[0]<5:result.pop('avtr_C')
