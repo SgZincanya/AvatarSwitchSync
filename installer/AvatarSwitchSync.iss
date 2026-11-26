@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.8.3"
+#define AppVersion "0.8.4"
 #endif
 [Setup]
 AppId={{A74FB19B-8178-40A6-B93C-7643B63EE979}
@@ -11,6 +11,8 @@ DefaultDirName={localappdata}\Programs\AvatarSwitchSync
 DefaultGroupName=Avatar Switch Sync
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
+DisableDirPage=no
+UsePreviousAppDir=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 MinVersion=10.0

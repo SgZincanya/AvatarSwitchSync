@@ -1,15 +1,15 @@
 {
-  "tag_name": "v0.8.3",
+  "tag_name": "v0.8.4",
   "draft": false,
   "prerelease": false,
-  "body": "移除随 VRChat 启动的检测助手、菜单、命令行入口和安装选项，仅保留 SteamVR 自动启动。升级自动停止并清理旧助手及其 Windows 登录启动项，保留分组与共享记录。95 项检查通过。",
+  "body": "手动运行安装包时始终显示安装位置选择页，默认保留已有安装目录并允许修改；软件内更新继续静默安装到当前目录。保留 SteamVR 自动启动，未恢复 VRChat 跟随功能。95 项检查通过。",
   "assets": [
     {
-      "name": "AvatarSwitchSync-0.8.3-Setup.exe",
+      "name": "AvatarSwitchSync-0.8.4-Setup.exe",
       "state": "uploaded",
-      "size": 12329016,
-      "digest": "sha256:11f1bd1a41ebd782d6bb7b5ddea4637b8c8b34d2e5383d462a2092aefb517b34",
-      "browser_download_url": "https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.3/AvatarSwitchSync-0.8.3-Setup.exe"
+      "size": 12334937,
+      "digest": "sha256:e50c0d552f547eba202d0ecad2ef469316cae5d6c75c0a61445ccbaa9c54b049",
+      "browser_download_url": "https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.4/AvatarSwitchSync-0.8.4-Setup.exe"
     }
   ]
 }

@@ -2,10 +2,10 @@
 
 用于 VRChat 的 Windows 模型设置共享工具。为同一角色的不同模型保留选定参数，换模型后自动恢复。
 
-## 下载 0.8.3
+## 下载 0.8.4
 
-- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.3/AvatarSwitchSync-0.8.3-Installer.zip)
-- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.3/AvatarSwitchSync-0.8.3-Source.zip)
+- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.4/AvatarSwitchSync-0.8.4-Installer.zip)
+- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.4/AvatarSwitchSync-0.8.4-Source.zip)
 
 ## 使用
 
@@ -36,6 +36,10 @@ SteamVR 自动启动时恢复已有共享记录；手动开始共享时先保存
 
 仓库及版本附件不包含个人分组、模型 ID、共享记录、参数快照、日志或个人截图。运行数据保存在本机用户目录；升级与卸载保留这些数据。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。
 
-## 0.8.3
+## 0.8.4
 
 移除随 VRChat 启动的检测助手、菜单和安装选项，仅保留 SteamVR 自动启动。升级自动清理旧助手和对应的 Windows 登录启动项。
+
+## 安装位置
+
+手动运行安装程序时始终显示安装目录选择页，已有安装位置作为默认值，可自行修改。软件内更新仍使用静默安装和当前程序目录，不显示目录选择页。
