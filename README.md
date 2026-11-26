@@ -2,10 +2,10 @@
 
 用于 VRChat 的 Windows 模型设置共享工具。为同一角色的不同模型保留选定参数，换模型后自动恢复。
 
-## 下载 0.8.2
+## 下载 0.8.3
 
-- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.2/AvatarSwitchSync-0.8.2-Installer.zip)
-- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.2/AvatarSwitchSync-0.8.2-Source.zip)
+- [安装包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.3/AvatarSwitchSync-0.8.3-Installer.zip)
+- [源码维护包](https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.3/AvatarSwitchSync-0.8.3-Source.zip)
 
 ## 使用
 
@@ -14,7 +14,7 @@
 3. 手动点击“开始共享”，保存当前模型的参考设置。
 4. 开启“添加模式”，依次使用新模型，准备好后自动入组并同步已有设置。
 
-推荐随 VRChat 自动启动并恢复已有共享记录；手动开始共享时先保存当前游戏值。软件已打开时，自动启动通知会交给现有窗口处理。
+SteamVR 自动启动时恢复已有共享记录；手动开始共享时先保存当前游戏值。软件已打开时，SteamVR 启动通知会交给现有窗口处理。
 
 成员默认折叠、展开后一行一个。支持参数快照、本机模型自动发现、共享范围筛选、深浅界面和运行诊断。校准与批量归零保护会暂停异常状态的记录，实时眼追和表情参数受保护。
 
@@ -28,7 +28,7 @@
 
 ## 维护与构建
 
-完整可维护源码位于 `src/`；测试位于 `tests/`；构建入口为 `build.ps1`。当前版本通过 101 项测试，并已从独立维护目录重新构建程序和安装包。
+完整可维护源码位于 `src/`；测试位于 `tests/`；构建入口为 `build.ps1`。当前版本通过 95 项测试，并已从独立维护目录重新构建程序和安装包。
 
 请参阅[维护指南](docs/MAINTENANCE.md)准备 Python 3.12 和构建依赖，再运行测试、生成界面资源或重新打包。软件详细说明见[使用说明](docs/README.md)。
 
@@ -36,10 +36,6 @@
 
 仓库及版本附件不包含个人分组、模型 ID、共享记录、参数快照、日志或个人截图。运行数据保存在本机用户目录；升级与卸载保留这些数据。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。
 
-## 随 VRChat 自动启动
+## 0.8.3
 
-在“文件”菜单勾选“随 VRChat 启动并恢复共享”，或在安装时选择此项。助手在当前用户登录后静默等待，每 3 秒轻量检查一次 VRChat 进程；游戏启动后打开软件并恢复已有共享记录。无需 SteamVR，桌面模式也适用。
-
-同一次游戏运行只请求一次；手动关闭软件后不会反复弹出，下次启动 VRChat 时重新生效。开启此方式会关闭旧 SteamVR 自动启动，避免重复触发。手动点击“开始共享”仍先保存当前值。可在同一菜单关闭；卸载会清理此软件自己的启动项。
-
-命令行：`--vrc-enable-autostart` 开启，`--vrc-disable-autostart` 关闭。
+移除随 VRChat 启动的检测助手、菜单和安装选项，仅保留 SteamVR 自动启动。升级自动清理旧助手和对应的 Windows 登录启动项。

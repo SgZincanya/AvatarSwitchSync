@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.8.2"
+#define AppVersion "0.8.3"
 #endif
 [Setup]
 AppId={{A74FB19B-8178-40A6-B93C-7643B63EE979}
@@ -33,8 +33,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: unchecked
-Name: "vrcstartup"; Description: "VRChat 启动时自动打开并恢复共享（推荐）"; Flags: unchecked
-Name: "steamvrstartup"; Description: "SteamVR 启动时自动打开并开始共享（旧方式）"; Flags: unchecked
+Name: "steamvrstartup"; Description: "SteamVR 启动时自动打开并开始共享"; Flags: unchecked
 
 [Files]
 Source: "..\dist\AvatarSwitchSync\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__,*.pyc,portable.flag,data,.backups"
@@ -44,17 +43,22 @@ Name: "{group}\Avatar Switch Sync"; Filename: "{app}\AvatarSwitchSync.exe"; Work
 Name: "{autodesktop}\Avatar Switch Sync"; Filename: "{app}\AvatarSwitchSync.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--vrc-enable-autostart"; Tasks: vrcstartup; Flags: runhidden waituntilterminated
-Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--vrc-refresh-autostart"; Flags: runhidden waituntilterminated
-Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--steamvr-enable-autostart"; Tasks: steamvrstartup; Check: not WizardIsTaskSelected('vrcstartup'); Flags: runhidden waituntilterminated
+Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--steamvr-enable-autostart"; Tasks: steamvrstartup; Flags: runhidden waituntilterminated
 Filename: "{app}\AvatarSwitchSync.exe"; Description: "打开 Avatar Switch Sync"; Flags: nowait postinstall skipifsilent unchecked
 
 [UninstallRun]
-Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--vrc-disable-autostart"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\AvatarSwitchSync.exe"; Parameters: "--steamvr-disable-autostart"; Flags: runhidden waituntilterminated skipifdoesntexist
 
 [Messages]
 chinesesimplified.FinishedLabel=Avatar Switch Sync 已安装完成。%n%n已有的分组、共享记录和参数快照会继续保留。请在游戏中启用 OSC 后开始共享。
+
+; One-time cleanup for installations upgrading from 0.8.2.
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "AvatarSwitchSync.VRChat"; Flags: deletevalue
+
+[InstallDelete]
+Type: files; Name: "{app}\VRChatLauncher.exe"
+Type: files; Name: "{app}\source\vrchat_startup.py"
 
 [Code]
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -63,13 +67,5 @@ begin
   Result := '';
   if FileExists(ExpandConstant('{app}\VRChatLauncher.exe')) then
     if not Exec(ExpandConstant('{app}\VRChatLauncher.exe'), '--stop', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      Result := '无法停止 VRChat 启动助手，请稍后重试。';
-end;
-
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var Code: Integer;
-begin
-  if CurUninstallStep = usUninstall then
-    if FileExists(ExpandConstant('{app}\VRChatLauncher.exe')) then
-      Exec(ExpandConstant('{app}\VRChatLauncher.exe'), '--stop', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+      Result := '无法停止旧版启动助手，请稍后重试。';
 end;

@@ -253,10 +253,6 @@ class App:
         file.add_command(label='导出分组配置…', command=self.export_config)
         file.add_command(label='打开数据目录', command=self.open_data)
         file.add_separator()
-        from vrchat_startup import registered_command
-        self.vrc_startup = tk.BooleanVar(value=bool(registered_command()))
-        file.add_checkbutton(label='随 VRChat 启动并恢复共享',variable=self.vrc_startup,command=self.toggle_vrc_startup)
-        file.add_separator()
         file.add_command(label='退出', command=self.close)
         menu.add_cascade(label='文件', menu=file)
         help_menu = tk.Menu(menu, tearoff=False)
@@ -277,20 +273,6 @@ class App:
             self.root.bind('<Alt-'+key+'>',lambda _,m=popup,b=button:m.tk_popup(b.winfo_rootx(),b.winfo_rooty()+b.winfo_height()))
         self.update_button=ttk.Button(self.menu_strip,text='检查更新',style='Menu.TButton',command=self.open_updates)
         self.update_button.pack(side='right')
-
-    def toggle_vrc_startup(self):
-        from vrchat_startup import configure, registered_command
-        try:
-            result=configure(backend.BASE/'AvatarSwitchSync.exe',self.vrc_startup.get())
-            if result['enabled']:
-                try:
-                    from steamvr_startup import configure as configure_steamvr
-                    configure_steamvr(backend.BASE/'AvatarSwitchSync.exe',False)
-                except Exception as exc:self.append_logs(['旧 SteamVR 关联未关闭：'+str(exc)])
-            self.notice.set('已启用：随 VRChat 启动并恢复已有记录。' if result['enabled'] else '已关闭随 VRChat 启动。')
-        except Exception as exc:
-            self.vrc_startup.set(bool(registered_command()))
-            messagebox.showerror('自动启动设置未完成',str(exc),parent=self.root)
 
     def open_updates(self):
         if self.update_info:self.show_update_dialog()

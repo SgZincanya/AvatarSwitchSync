@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import uuid
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 
 
 def empty_config():
