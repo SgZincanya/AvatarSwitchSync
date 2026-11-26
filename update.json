@@ -1,15 +1,15 @@
 {
-  "tag_name": "v0.8.1",
+  "tag_name": "v0.8.2",
   "draft": false,
   "prerelease": false,
-  "body": "新增 GitHub 检查、下载、校验与安装更新；公开轻量更新索引避免匿名 API 限流。稳定同步改为事件驱动，无变化不读取全表、不重发，换模型时恢复共享值。95 项检查通过。",
+  "body": "新增随 VRChat 启动并恢复已有共享记录：轻量助手随 Windows 登录运行，每 3 秒检查当前会话的 VRChat；每次游戏启动只触发一次，无需 SteamVR。文件菜单可开关；开启后关闭旧 SteamVR 自动启动。手动开始仍保存当前值。101 项检查通过。",
   "assets": [
     {
-      "name": "AvatarSwitchSync-0.8.1-Setup.exe",
+      "name": "AvatarSwitchSync-0.8.2-Setup.exe",
       "state": "uploaded",
-      "size": 12334479,
-      "digest": "sha256:39d5cfc7e724cfa1efd786cf3ee0ec93d640e2dff603184dc9f9a682f332af0f",
-      "browser_download_url": "https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.1/AvatarSwitchSync-0.8.1-Setup.exe"
+      "size": 12342188,
+      "digest": "sha256:8d0d45e2adf174936c5b571580aba225208e057da918c3ce000bebd611728c78",
+      "browser_download_url": "https://github.com/SgZincanya/AvatarSwitchSync/releases/download/v0.8.2/AvatarSwitchSync-0.8.2-Setup.exe"
     }
   ]
 }

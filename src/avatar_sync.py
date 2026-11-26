@@ -693,6 +693,23 @@ def App(root):
 
 
 def main():
+    if any(arg in sys.argv for arg in ('--vrc-enable-autostart','--vrc-disable-autostart','--vrc-refresh-autostart')):
+        from vrchat_startup import configure, registered_command
+        try:
+            refresh = '--vrc-refresh-autostart' in sys.argv
+            if refresh and not registered_command():return
+            enabled = '--vrc-disable-autostart' not in sys.argv
+            result = configure(BASE/'AvatarSwitchSync.exe', enabled)
+            if enabled:
+                try:
+                    from steamvr_startup import configure as configure_steamvr
+                    configure_steamvr(BASE/'AvatarSwitchSync.exe',False)
+                except Exception as exc:result['steamvr_notice']=str(exc)
+        except Exception as exc:
+            write_json(DATA/'vrchat-startup-result.json',{'error':str(exc)})
+            raise SystemExit(1)
+        write_json(DATA/'vrchat-startup-result.json',result)
+        return
     if any(arg in sys.argv for arg in ('--steamvr-enable-autostart','--steamvr-disable-autostart')):
         from steamvr_startup import configure
         try:

@@ -22,6 +22,8 @@ try {
     if (-not (Test-Path -LiteralPath $helperCompiler)) { throw '未找到 Windows .NET Framework C# 编译器，无法构建更新助手。' }
     & $helperCompiler /nologo /target:winexe /reference:System.Windows.Forms.dll ("/out:"+(Join-Path $release 'UpdateHelper.exe')) tools\UpdateHelper.cs
     if ($LASTEXITCODE -ne 0) { throw '更新助手构建失败。' }
+    & $helperCompiler /nologo /target:winexe ("/out:"+(Join-Path $release 'VRChatLauncher.exe')) tools\VRChatLauncher.cs
+    if ($LASTEXITCODE -ne 0) { throw 'VRChat 启动助手构建失败。' }
     New-Item -ItemType Directory -Path (Join-Path $release 'source') -Force | Out-Null
     Copy-Item -LiteralPath src\app.ico,docs\README.md,THIRD_PARTY_NOTICES.md -Destination $release
     Copy-Item -Path src\*.py -Destination (Join-Path $release 'source')
